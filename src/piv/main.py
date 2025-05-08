@@ -1,4 +1,4 @@
-from piv.collector import DataCollector
+from collector import DataCollector
 
 if __name__ == "__main__":
     collector = DataCollector()
