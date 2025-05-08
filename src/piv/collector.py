@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import sqlite3
-from logger import setup_logger
+from piv.logger import setup_logger
 import os
 
 class DataCollector:
