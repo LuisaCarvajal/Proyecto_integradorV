@@ -52,21 +52,33 @@ class DataCollector:
             self.logger.error(f"La columna 'date' no está presente en el DataFrame: columnas = {df.columns.tolist()}")
             return
 
-        self.logger.debug(f"Primeras filas del DataFrame nuevo:\n{df.head()}")
-        self.logger.debug(f"Columnas del DataFrame nuevo: {df.columns.tolist()}")
-
         try:
             os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
+
+            # Renombrar 'date' a 'fecha' y preparar el mapeo
+            df = df.rename(columns={'date': 'fecha'})
+            column_map = {
+                "fecha": "fecha",
+                "open": "abrir",
+                "high": "max",
+                "low": "minimo",
+                "close": "cerrar",
+                "adj_close": "cierre ajustado",
+                "volume": "volumen"
+            }
+            df = df.rename(columns={k: v for k, v in column_map.items() if k in df.columns})
 
             if os.path.exists(self.csv_path):
                 try:
                     existing = pd.read_csv(self.csv_path)
 
-                    if 'date' not in existing.columns:
-                        self.logger.warning("El CSV existente no contiene la columna 'date'. Se sobrescribirá.")
+                    if 'fecha' not in existing.columns:
+                        self.logger.warning("El CSV existente no contiene la columna 'fecha'. Se sobrescribirá.")
                         merged = df
                     else:
-                        merged = pd.concat([existing, df]).drop_duplicates(subset="date").sort_values(by="date")
+                        existing['fecha'] = pd.to_datetime(existing['fecha'])
+                        df['fecha'] = pd.to_datetime(df['fecha'])
+                        merged = pd.concat([existing, df]).drop_duplicates(subset="fecha").sort_values(by="fecha")
                         self.logger.info("Hay un CSV existente. Fusionando.")
                 except Exception as e:
                     self.logger.error(f"Error al leer el CSV existente: {e}")
@@ -91,7 +103,7 @@ class DataCollector:
             with sqlite3.connect(self.db_path) as conn:
                 try:
                     existing = pd.read_sql("SELECT * FROM bitcoin_data", conn)
-                    merged = pd.concat([existing, df]).drop_duplicates(subset="date")
+                    merged = pd.concat([existing, df]).drop_duplicates(subset="fecha")
                     self.logger.info("Hay datos existentes. Fusionando...")
                 except Exception:
                     merged = df
