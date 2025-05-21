@@ -5,13 +5,14 @@ from logger import setup_logger
 import os
 
 class DataCollector:
-    def __init__(self, ticker="BTC-EUR", db_path="src/piv/static/data/historical.db", csv_path="src/piv/static/data/historical.csv"):
+    def __init__(self, ticker="005930.KS", db_path="src/piv/static/data/historical.db", csv_path="src/piv/static/data/historical.csv"):
         self.ticker = ticker
         self.db_path = db_path
-        self.csv_path = csv_path
+        self.csv_path = csv_path        
         self.logger = setup_logger()
         self.logger.info(f"Iniciando recolección de datos para {self.ticker}")
 
+    
     def fetch_data(self):
         try:
             self.logger.info("Descargando los datos desde Yahoo Finance.")
@@ -52,40 +53,31 @@ class DataCollector:
             self.logger.error(f"La columna 'date' no está presente en el DataFrame: columnas = {df.columns.tolist()}")
             return
 
+        self.logger.debug(f"Primeras filas del DataFrame nuevo:\n{df.head()}")
+        self.logger.debug(f"Columnas del DataFrame nuevo: {df.columns.tolist()}")
+
         try:
             os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
-
-            # Renombrar 'date' a 'fecha' y preparar el mapeo
-            df = df.rename(columns={'date': 'fecha'})
-            column_map = {
-                "fecha": "fecha",
-                "open": "abrir",
-                "high": "max",
-                "low": "minimo",
-                "close": "cerrar",
-                "adj_close": "cierre ajustado",
-                "volume": "volumen"
-            }
-            df = df.rename(columns={k: v for k, v in column_map.items() if k in df.columns})
 
             if os.path.exists(self.csv_path):
                 try:
                     existing = pd.read_csv(self.csv_path)
 
-                    if 'fecha' not in existing.columns:
-                        self.logger.warning("El CSV existente no contiene la columna 'fecha'. Se sobrescribirá.")
-                        merged = df
-                    else:
-                        existing['fecha'] = pd.to_datetime(existing['fecha'])
-                        df['fecha'] = pd.to_datetime(df['fecha'])
-                        merged = pd.concat([existing, df]).drop_duplicates(subset="fecha").sort_values(by="fecha")
-                        self.logger.info("Hay un CSV existente. Fusionando.")
+                    # Convertir 'date' a datetime en ambos DataFrames para evitar problemas de comparación
+                    existing['date'] = pd.to_datetime(existing['date'], errors='coerce')
+                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+                    merged = pd.concat([existing, df]).drop_duplicates(subset="date").sort_values(by="date")
+                    self.logger.info("Hay un CSV existente. Fusionando.")
                 except Exception as e:
                     self.logger.error(f"Error al leer el CSV existente: {e}")
                     merged = df
             else:
                 self.logger.warning("Archivo CSV no encontrado. Se creará uno nuevo.")
                 merged = df
+
+            # Guardar 'date' en formato ISO para evitar confusiones
+            merged['date'] = merged['date'].dt.strftime('%Y-%m-%d')
 
             merged.to_csv(self.csv_path, index=False)
             self.logger.info(f"CSV actualizado. Total: {len(merged)} registros.")
@@ -103,13 +95,30 @@ class DataCollector:
             with sqlite3.connect(self.db_path) as conn:
                 try:
                     existing = pd.read_sql("SELECT * FROM bitcoin_data", conn)
-                    merged = pd.concat([existing, df]).drop_duplicates(subset="fecha")
+                    
+                    # Convertir 'date' a datetime en ambos DataFrames para evitar problemas
+                    existing['date'] = pd.to_datetime(existing['date'], errors='coerce')
+                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+                    
+                    merged = pd.concat([existing, df]).drop_duplicates(subset="date")
                     self.logger.info("Hay datos existentes. Fusionando...")
                 except Exception:
                     merged = df
                     self.logger.warning("Como la tabla no existe, se creará una nueva.")
 
+                # Convertir 'date' a string antes de guardar en SQLite para evitar errores de binding
+                merged['date'] = merged['date'].dt.strftime('%Y-%m-%d')
+
                 merged.to_sql("bitcoin_data", conn, if_exists="replace", index=False)
                 self.logger.info(f"SQLite actualizado. Total: {len(merged)} registros.")
         except Exception as e:
             self.logger.error(f"Error al actualizar SQLite: {e}")
+    def fetch_data_and_save(self):
+        df = self.fetch_data()
+        self.update_csv(df)
+        self.update_sqlite(df)
+        
+    def run(self):
+        df = self.fetch_data()
+        self.update_csv(df)
+        self.update_sqlite(df)

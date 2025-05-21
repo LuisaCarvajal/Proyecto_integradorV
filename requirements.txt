@@ -1,3 +1,9 @@
 pandas==2.2.2
 yfinance>=0.2.36
 openpyxl
+streamlit>=1.30.0
+matplotlib>=3.8.0
+statsmodels
+plotly
+numpy
+scikit-learn
