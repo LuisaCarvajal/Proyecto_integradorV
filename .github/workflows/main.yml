@@ -41,7 +41,8 @@ jobs:
           echo send_usage_stats = false >> %USERPROFILE%\.streamlit\config.toml
 
       - name: Paso 9 - Ejecutar dashboard
-        run: streamlit run src/piv/dashboard.py
+        run: streamlit check src/piv/dashboard.py
+        
 
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
