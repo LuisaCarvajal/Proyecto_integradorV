@@ -18,7 +18,10 @@ def enrich_data(df):
     df["rolling_mean_20"] = df["close_samsung"].rolling(window=20).mean()
     df["rolling_std_20"] = df["close_samsung"].rolling(window=20).std()
     df["volatility_20"] = df["daily_return"].rolling(window=20).std()
-    df["target"] = df["daily_return"].shift(-1) > 0
+    df["target"] = df["daily_return"].shift(-1)
+    df["target_volatility"] = df["volatility_20"].shift(-1)
+
+    df = df.dropna(subset=["daily_return", "rolling_mean_20", "rolling_std_20", "volatility_20", "target"])
 
     return df
 

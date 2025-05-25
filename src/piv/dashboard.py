@@ -32,7 +32,7 @@ def calculate_rsi(data, window=14):
 df['RSI'] = calculate_rsi(df['close_samsung'])
 
 # --- Interfaz Streamlit ---
-st.title("📊 Dashboard Financiero: Samsung vs KOSPI")
+st.title("📊 Dashboard Financiero: Samsung ")
 
 # KPIs
 st.subheader("📌 Indicadores Clave")
@@ -46,7 +46,8 @@ option = st.selectbox("Selecciona una sección:", [
     "RSI",
     "Predicción ARIMA",
     "Predicción SARIMA",
-    "Volatilidad"
+    "Volatilidad",
+    "Comparación Samsung vs KOSPI"
 
 ])
 
@@ -99,7 +100,25 @@ elif option == "Predicción SARIMA":
     sarima_forecast = sarima_fit.forecast(steps=10)
     st.line_chart(pd.concat([sarima_series, sarima_forecast], axis=0, ignore_index=True))
     st.write("**Próximos 10 días de predicción SARIMA:**")
-    st.write(sarima_forecast)
+    st.write(sarima_forecast)  
+
+elif option == "Comparación Samsung vs KOSPI":
+    st.subheader("📊 Comparación: Samsung vs KOSPI (normalizado)")
+
+    # Normalización para comparar escalas
+    df_comp = df[["close_samsung", "kospi_close"]].dropna().copy()
+    df_comp["close_samsung_norm"] = df_comp["close_samsung"] / df_comp["close_samsung"].iloc[0]
+    df_comp["kospi_close_norm"] = df_comp["kospi_close"] / df_comp["kospi_close"].iloc[0]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df_comp.index, y=df_comp["close_samsung_norm"], mode='lines', name="Samsung (Norm)"))
+    fig.add_trace(go.Scatter(x=df_comp.index, y=df_comp["kospi_close_norm"], mode='lines', name="KOSPI (Norm)"))
+    fig.update_layout(title="Evolución Comparativa (Normalizada) - Samsung vs KOSPI",
+                      xaxis_title="Fecha", yaxis_title="Precio Normalizado",
+                      template="plotly_white")
+
+    st.plotly_chart(fig)
+
 
 st.markdown("---")
 
